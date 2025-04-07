@@ -177,7 +177,7 @@ if __name__ == "__main__":
     logging.basicConfig(format=log_format, level=args.log_level)
 
     # Get the latest approved package
-    model_package_arn = get_approved_package(args.model_package_group_name)
+    model_package_arn = get_approved_package(args.FraudModelPackageGroup-Example)
 
     # Process the preprocessing artifact
     s3 = boto3.client("s3")

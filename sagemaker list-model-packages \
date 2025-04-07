@@ -1,0 +1,47 @@
+{
+    "ModelPackageGroupSummaryList": [
+        {
+            "ModelPackageGroupName": "FraudModelPackageGroup-Example",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:ap-south-1:484907522608:model-package-group/FraudModelPackageGroup-Example",
+            "CreationTime": "2025-04-04T15:49:18.654000+00:00",
+            "ModelPackageGroupStatus": "Completed"
+        },
+        {
+            "ModelPackageGroupName": "Model-Group-1743755887696",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:ap-south-1:484907522608:model-package-group/Model-Group-1743755887696",
+            "ModelPackageGroupDescription": "test_register_1",
+            "CreationTime": "2025-04-04T08:39:40.315000+00:00",
+            "ModelPackageGroupStatus": "Completed"
+        },
+        {
+            "ModelPackageGroupName": "Fraud-detection-R2-p-reqobx20nskg",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:ap-south-1:484907522608:model-package-group/Fraud-detection-R2-p-reqobx20nskg",
+            "CreationTime": "2025-03-27T05:50:04.657000+00:00",
+            "ModelPackageGroupStatus": "Completed"
+        },
+        {
+            "ModelPackageGroupName": "Fraud-Detection-Test-MLOPS-10-p-xmwmybkjxgt0",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:ap-south-1:484907522608:model-package-group/Fraud-Detection-Test-MLOPS-10-p-xmwmybkjxgt0",
+            "CreationTime": "2025-03-26T08:57:03.619000+00:00",
+            "ModelPackageGroupStatus": "Completed"
+        },
+        {
+            "ModelPackageGroupName": "Fraud-Detection-Test-MLOPS-5-p-lgli8pzvmprx",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:ap-south-1:484907522608:model-package-group/Fraud-Detection-Test-MLOPS-5-p-lgli8pzvmprx",
+            "CreationTime": "2025-03-26T06:19:53.529000+00:00",
+            "ModelPackageGroupStatus": "Completed"
+        },
+        {
+            "ModelPackageGroupName": "Fraud-Detection-Test-MLOPS-4-p-tgeyhkwnbqdk",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:ap-south-1:484907522608:model-package-group/Fraud-Detection-Test-MLOPS-4-p-tgeyhkwnbqdk",
+            "CreationTime": "2025-03-26T06:11:35.486000+00:00",
+            "ModelPackageGroupStatus": "Completed"
+        },
+        {
+            "ModelPackageGroupName": "Fraud-Detection-Test-MLOPS-3-p-gngyexgrkypf",
+            "ModelPackageGroupArn": "arn:aws:sagemaker:ap-south-1:484907522608:model-package-group/Fraud-Detection-Test-MLOPS-3-p-gngyexgrkypf",
+            "CreationTime": "2025-03-26T05:59:15.514000+00:00",
+            "ModelPackageGroupStatus": "Completed"
+        }
+    ]
+}
