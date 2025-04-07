@@ -2,6 +2,9 @@ import argparse
 import json
 import logging
 import os
+import shutil
+import tarfile
+import tempfile
 
 import boto3
 from botocore.exceptions import ClientError
@@ -49,7 +52,7 @@ def get_approved_package(model_package_group_name):
             logger.error(error_message)
             raise Exception(error_message)
 
-        # Return the pmodel package arn
+        # Return the model package ARN
         model_package_arn = approved_packages[0]["ModelPackageArn"]
         logger.info(f"Identified the latest approved model package: {model_package_arn}")
         return model_package_arn
@@ -59,19 +62,37 @@ def get_approved_package(model_package_group_name):
         raise Exception(error_message)
 
 
-def extend_config(args, model_package_arn, stage_config):
+def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url, xgboost_image, xgboost_model_data_url):
     """
-    Extend the stage configuration with additional parameters and tags based.
+    Extend the stage configuration with additional parameters and tags.
+
+    Args:
+        args: Command-line arguments.
+        model_package_arn: ARN of the approved model package.
+        stage_config: The original stage configuration dictionary.
+        sklearn_model_data_url: S3 URL of the SKLearn model artifact.
+        xgboost_image: ECR image URI for the XGBoost model.
+        xgboost_model_data_url: S3 URL of the XGBoost model artifact.
+
+    Returns:
+        Updated configuration dictionary.
     """
     # Verify that config has parameters and tags sections
     if not "Parameters" in stage_config or not "StageName" in stage_config["Parameters"]:
-        raise Exception("Configuration file must include SageName parameter")
+        raise Exception("Configuration file must include StageName parameter")
     if not "Tags" in stage_config:
         stage_config["Tags"] = {}
-    # Create new params and tags
+
+    # Define SKLearn image URI (hardcoded for us-west-2; adjust for your region)
+    sklearn_image = "683313688378.dkr.ecr.us-west-2.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
+
+    # Create new parameters
     new_params = {
         "SageMakerProjectName": args.sagemaker_project_name,
-        "ModelPackageName": model_package_arn,
+        "SKLearnImage": sklearn_image,
+        "SKLearnModelDataUrl": sklearn_model_data_url,
+        "XGBoostImage": xgboost_image,
+        "XGBoostModelDataUrl": xgboost_model_data_url,
         "ModelExecutionRoleArn": args.model_execution_role,
         "DataCaptureUploadPath": "s3://" + args.s3_bucket + '/datacapture-' + stage_config["Parameters"]["StageName"],
     }
@@ -88,20 +109,21 @@ def extend_config(args, model_package_arn, stage_config):
         "Tags": {**stage_config.get("Tags", {}), **new_tags},
     }
 
+
 def get_pipeline_custom_tags(args, sm_client, new_tags):
     try:
         response = sm_client.describe_project(
             ProjectName=args.sagemaker_project_name
         )
         sagemaker_project_arn = response["ProjectArn"]
-        response = sm_client.list_tags(
-                ResourceArn=sagemaker_project_arn)
+        response = sm_client.list_tags(ResourceArn=sagemaker_project_arn)
         project_tags = response["Tags"]
         for project_tag in project_tags:
             new_tags[project_tag["Key"]] = project_tag["Value"]
     except:
         logger.error("Error getting project tags")
     return new_tags
+
 
 def get_cfn_style_config(stage_config):
     parameters = []
@@ -120,13 +142,15 @@ def get_cfn_style_config(stage_config):
         tags.append(tag)
     return parameters, tags
 
+
 def create_cfn_params_tags_file(config, export_params_file, export_tags_file):
-    # Write Params and tags in separate file for Cfn cli command
+    # Write Params and tags in separate file for CFN CLI command
     parameters, tags = get_cfn_style_config(config)
     with open(export_params_file, "w") as f:
         json.dump(parameters, f, indent=4)
     with open(export_tags_file, "w") as f:
         json.dump(tags, f, indent=4)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -136,6 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--sagemaker-project-id", type=str, required=True)
     parser.add_argument("--sagemaker-project-name", type=str, required=True)
     parser.add_argument("--s3-bucket", type=str, required=True)
+    parser.add_argument("--preprocess-s3-path", type=str, required=True, help="S3 path to preprocess.tar.gz")
     parser.add_argument("--import-staging-config", type=str, default="staging-config.json")
     parser.add_argument("--import-prod-config", type=str, default="prod-config.json")
     parser.add_argument("--export-staging-config", type=str, default="staging-config-export.json")
@@ -154,20 +179,59 @@ if __name__ == "__main__":
     # Get the latest approved package
     model_package_arn = get_approved_package(args.model_package_group_name)
 
+    # Process the preprocessing artifact
+    s3 = boto3.client("s3")
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        # Download preprocess.tar.gz
+        bucket, key = args.preprocess_s3_path.replace("s3://", "").split("/", 1)
+        local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
+        s3.download_file(bucket, key, local_preprocess_path)
+
+        # Extract tar.gz
+        with tarfile.open(local_preprocess_path, "r:gz") as tar:
+            tar.extractall(path=tmpdirname)
+
+        # Copy inference.py to the extracted directory (assumes inference.py is in code/ directory)
+        inference_script_path = "code/inference.py"
+        if not os.path.exists(inference_script_path):
+            raise FileNotFoundError(f"{inference_script_path} not found in the repository")
+        shutil.copy(inference_script_path, tmpdirname)
+
+        # Create new tar.gz for SKLearn model
+        sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
+        with tarfile.open(sklearn_model_tar_path, "w:gz") as tar:
+            for item in os.listdir(tmpdirname):
+                if item != "sklearn_model.tar.gz":
+                    tar.add(os.path.join(tmpdirname, item), arcname=item)
+
+        # Upload to S3
+        sklearn_model_s3_key = "models/sklearn_model.tar.gz"
+        s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
+        sklearn_model_data_url = f"s3://{args.s3_bucket}/{sklearn_model_s3_key}"
+
+    # Get XGBoost model details from the model package
+    response = sm_client.describe_model_package(ModelPackageName=model_package_arn)
+    xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
+    xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
+
     # Write the staging config
     with open(args.import_staging_config, "r") as f:
-        staging_config = extend_config(args, model_package_arn, json.load(f))
+        staging_config = extend_config(
+            args, model_package_arn, json.load(f), sklearn_model_data_url, xgboost_image, xgboost_model_data_url
+        )
     logger.debug("Staging config: {}".format(json.dumps(staging_config, indent=4)))
     with open(args.export_staging_config, "w") as f:
         json.dump(staging_config, f, indent=4)
-    if (args.export_cfn_params_tags):
-      create_cfn_params_tags_file(staging_config, args.export_staging_params, args.export_staging_tags)
+    if args.export_cfn_params_tags:
+        create_cfn_params_tags_file(staging_config, args.export_staging_params, args.export_staging_tags)
 
-    # Write the prod config for code pipeline
+    # Write the prod config for CodePipeline
     with open(args.import_prod_config, "r") as f:
-        prod_config = extend_config(args, model_package_arn, json.load(f))
+        prod_config = extend_config(
+            args, model_package_arn, json.load(f), sklearn_model_data_url, xgboost_image, xgboost_model_data_url
+        )
     logger.debug("Prod config: {}".format(json.dumps(prod_config, indent=4)))
     with open(args.export_prod_config, "w") as f:
         json.dump(prod_config, f, indent=4)
-    if (args.export_cfn_params_tags):
-      create_cfn_params_tags_file(prod_config, args.export_prod_params, args.export_prod_tags)
+    if args.export_cfn_params_tags:
+        create_cfn_params_tags_file(prod_config, args.export_prod_params, args.export_prod_tags)
