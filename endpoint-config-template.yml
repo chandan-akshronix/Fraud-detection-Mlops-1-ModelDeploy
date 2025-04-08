@@ -15,6 +15,18 @@ Parameters:
   ModelPackageName:
     Type: String
     Description: The trained Model Package Name
+  SKLearnImage:
+    Type: String
+    Description: The ECR image URI for the SKLearn preprocessing container.
+  SKLearnModelDataUrl:
+    Type: String
+    Description: The S3 URL of the SKLearn model artifact.
+  XGBoostImage:
+    Type: String
+    Description: The ECR image URI for the XGBoost prediction container.
+  XGBoostModelDataUrl:
+    Type: String
+    Description: The S3 URL of the XGBoost model artifact.
   StageName:
     Type: String
     Description:
@@ -46,9 +58,12 @@ Resources:
   Model:
     Type: AWS::SageMaker::Model
     Properties:
-      Containers:
-         - ModelPackageName: !Ref ModelPackageName
       ExecutionRoleArn: !Ref ModelExecutionRoleArn
+      Containers:
+        - Image: !Ref SKLearnImage
+          ModelDataUrl: !Ref SKLearnModelDataUrl
+        - Image: !Ref XGBoostImage
+          ModelDataUrl: !Ref XGBoostModelDataUrl
 
   EndpointConfig:
     Type: AWS::SageMaker::EndpointConfig

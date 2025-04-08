@@ -82,7 +82,6 @@ def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url,
         raise Exception("Configuration file must include StageName parameter")
     if not "Tags" in stage_config:
         stage_config["Tags"] = {}
-
     # Define SKLearn image URI (hardcoded for us-west-2; adjust for your region)
     sklearn_image = "683313688378.dkr.ecr.us-west-2.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
 
@@ -191,8 +190,8 @@ if __name__ == "__main__":
         with tarfile.open(local_preprocess_path, "r:gz") as tar:
             tar.extractall(path=tmpdirname)
 
-        # Copy inference.py to the extracted directory (assumes inference.py is in code/ directory)
-        inference_script_path = "code/inference.py"
+        # Copy inference.py to the extracted directory (assumes inference.py is in inference/ directory)
+        inference_script_path = "inference/inference.py"
         if not os.path.exists(inference_script_path):
             raise FileNotFoundError(f"{inference_script_path} not found in the repository")
         shutil.copy(inference_script_path, tmpdirname)
