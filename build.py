@@ -182,6 +182,7 @@ if __name__ == "__main__":
     s3 = boto3.client("s3")
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Download preprocess.tar.gz
+        print(f"Preprocess S3 path: {args.preprocess_s3_path}")
         bucket, key = args.preprocess_s3_path.replace("s3://", "").split("/", 1)
         local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
         s3.download_file(bucket, key, local_preprocess_path)
