@@ -159,7 +159,7 @@ if __name__ == "__main__":
     parser.add_argument("--sagemaker-project-id", type=str, required=True)
     parser.add_argument("--sagemaker-project-name", type=str, required=True)
     parser.add_argument("--s3-bucket", type=str, required=True)
-    parser.add_argument("--preprocess-s3-path", type=str, required=True, help="S3 path to preprocess.tar.gz")
+    parser.add_argument("--preprocess-s3-path", type=str, required=False, help="S3 path to preprocess.tar.gz (optional)")
     parser.add_argument("--import-staging-config", type=str, default="staging-config.json")
     parser.add_argument("--import-prod-config", type=str, default="prod-config.json")
     parser.add_argument("--export-staging-config", type=str, default="staging-config-export.json")
@@ -178,12 +178,17 @@ if __name__ == "__main__":
     # Get the latest approved package
     model_package_arn = get_approved_package(args.model_package_group_name)
 
+    response = sm_client.describe_model_package(ModelPackageName=model_package_arn)
+    preprocess_s3_path = args.preprocess_s3_path or response["CustomerMetadataProperties"].get("preprocess_s3_path")
+    if not preprocess_s3_path:
+        raise ValueError("preprocess_s3_path not provided and not found in model package customer metadata")
+
     # Process the preprocessing artifact
     s3 = boto3.client("s3")
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Download preprocess.tar.gz
-        print(f"Preprocess S3 path: {args.preprocess_s3_path}")
-        bucket, key = args.preprocess_s3_path.replace("s3://", "").split("/", 1)
+        print(f"Preprocess S3 path: {preprocess_s3_path}")
+        bucket, key = preprocess_s3_path.replace("s3://", "").split("/", 1)
         local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
         s3.download_file(bucket, key, local_preprocess_path)
 
@@ -210,7 +215,6 @@ if __name__ == "__main__":
         sklearn_model_data_url = f"s3://{args.s3_bucket}/{sklearn_model_s3_key}"
 
     # Get XGBoost model details from the model package
-    response = sm_client.describe_model_package(ModelPackageName=model_package_arn)
     xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
     xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
 
