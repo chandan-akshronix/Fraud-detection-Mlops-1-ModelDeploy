@@ -189,19 +189,32 @@ if __name__ == "__main__":
 
     s3 = boto3.client("s3")
     with tempfile.TemporaryDirectory() as tmpdirname:
+        # Download the input preprocess tarball
         bucket, key = preprocess_s3_path.replace("s3://", "").split("/", 1)
         local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
         s3.download_file(bucket, key, local_preprocess_path)
+
+        # Extract the preprocess tarball
         with tarfile.open(local_preprocess_path, "r:gz") as tar:
             tar.extractall(path=tmpdirname)
-        import os
-        if os.path.exists(os.path.join(tmpdirname, "preprocessor.pkl")):
-            os.rename(os.path.join(tmpdirname, "preprocessor.pkl"), os.path.join(tmpdirname, "model.joblib"))
+
+        # Ensure model.joblib exists
+        preprocess_path = os.path.join(tmpdirname, "preprocessor.pkl")
+        model_joblib_path = os.path.join(tmpdirname, "model.joblib")
+
+        if os.path.exists(preprocess_path):
+            logger.info("Renaming preprocessor.pkl to model.joblib")
+            os.rename(preprocess_path, model_joblib_path)
+        elif os.path.exists(model_joblib_path):
+            logger.info("model.joblib already exists")
+        else:
+            logger.error("No preprocessor.pkl or model.joblib found in preprocess.tar.gz")
+            raise FileNotFoundError("No model file found")
+
+        # Create a new tarball with only model.joblib
         sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
         with tarfile.open(sklearn_model_tar_path, "w:gz") as tar:
-            for item in os.listdir(tmpdirname):
-                if item != "sklearn_model.tar.gz":
-                    tar.add(os.path.join(tmpdirname, item), arcname=item)
+            tar.add(model_joblib_path, arcname="model.joblib")
 
         sklearn_model_s3_key = "models/sklearn_model.tar.gz"
         s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
