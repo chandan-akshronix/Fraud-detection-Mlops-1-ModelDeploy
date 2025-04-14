@@ -205,8 +205,10 @@ if __name__ == "__main__":
         if os.path.exists(preprocess_path):
             logger.info("Renaming preprocessor.pkl to model.joblib")
             os.rename(preprocess_path, model_joblib_path)
+
         elif os.path.exists(model_joblib_path):
             logger.info("model.joblib already exists")
+
         else:
             logger.error("No preprocessor.pkl or model.joblib found in preprocess.tar.gz")
             raise FileNotFoundError("No model file found")
@@ -216,10 +218,11 @@ if __name__ == "__main__":
         source_inference_path = os.path.join(script_dir, "inference.py")
         inference_script_path = os.path.join(tmpdirname, "inference.py")
 
-        if not os.path.exists(inference_source_path):
+        if not os.path.exists(source_inference_path):
             logger.error("inference.py not found in script directory: %s", script_dir)
             raise FileNotFoundError("inference.py not found in script directory")
-    
+
+        #Copying inference.py to temporary directory
         shutil.copy(source_inference_path, inference_script_path)
         logger.info("Copied inference.py to temporary directory")
 
