@@ -9,6 +9,8 @@ import tempfile
 import boto3
 from botocore.exceptions import ClientError
 
+region = session.region_name
+
 logger = logging.getLogger(__name__)
 sm_client = boto3.client("sagemaker")
 
@@ -83,7 +85,7 @@ def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url,
     if not "Tags" in stage_config:
         stage_config["Tags"] = {}
     # Define SKLearn image URI (hardcoded for us-west-2; adjust for your region)
-    sklearn_image = "683313688378.dkr.ecr.us-west-2.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
+    sklearn_image = "865070037744.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
 
     # Create new parameters
     new_params = {
@@ -219,7 +221,7 @@ if __name__ == "__main__":
     xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
     xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
 
-    # Write the staging config
+    # Write the staging sklearn_imagesklearn_imagesklearn_imagesklearn_imagesklearn_image
     with open(args.import_staging_config, "r") as f:
         staging_config = extend_config(
             args, model_package_arn, json.load(f), sklearn_model_data_url, xgboost_image, xgboost_model_data_url
