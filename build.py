@@ -9,8 +9,6 @@ import tempfile
 import boto3
 from botocore.exceptions import ClientError
 
-region = session.region_name
-
 logger = logging.getLogger(__name__)
 sm_client = boto3.client("sagemaker")
 
