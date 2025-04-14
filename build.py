@@ -94,6 +94,7 @@ def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url,
         "XGBoostModelDataUrl": xgboost_model_data_url,
         "ModelExecutionRoleArn": args.model_execution_role,
         "DataCaptureUploadPath": "s3://" + args.s3_bucket + '/datacapture-' + stage_config["Parameters"]["StageName"],
+        "ModelPackageName": model_package_arn,
     }
     new_tags = {
         "sagemaker:deployment-stage": stage_config["Parameters"]["StageName"],
