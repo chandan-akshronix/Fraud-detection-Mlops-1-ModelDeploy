@@ -62,6 +62,9 @@ Resources:
       Containers:
         - Image: !Ref SKLearnImage
           ModelDataUrl: !Ref SKLearnModelDataUrl
+          Environment:
+            SAGEMAKER_PROGRAM: inference.py
+            SAGEMAKER_SUBMIT_DIRECTORY: /opt/ml/model
         - Image: !Ref XGBoostImage
           ModelDataUrl: !Ref XGBoostModelDataUrl
 

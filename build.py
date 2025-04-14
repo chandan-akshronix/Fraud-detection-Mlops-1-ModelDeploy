@@ -210,11 +210,32 @@ if __name__ == "__main__":
         else:
             logger.error("No preprocessor.pkl or model.joblib found in preprocess.tar.gz")
             raise FileNotFoundError("No model file found")
+        
+        # Copy inference.py from the same directory as build.py
+        script_dir = os.path.dirname(os.path.abspath(__file__))  # Directory of build.py
+        source_inference_path = os.path.join(script_dir, "inference.py")
+        inference_script_path = os.path.join(tmpdirname, "inference.py")
 
-        # Create a new tarball with only model.joblib
+        if not os.path.exists(inference_source_path):
+            logger.error("inference.py not found in script directory: %s", script_dir)
+            raise FileNotFoundError("inference.py not found in script directory")
+    
+        shutil.copy(inference_source_path, inference_script_path)
+        logger.info("Copied inference.py to temporary directory")
+
+        # Verify inference.py was copied
+        if not os.path.exists(inference_script_path):
+            logger.error("Failed to copy inference.py to temporary directory")
+            raise FileNotFoundError("inference.py not found after copy")
+        
+        # Log files in temp directory for debugging
+        logger.info("Files in temp directory: %s", os.listdir(tmpdirname))
+
+        # Create a new tarball with model.joblib and inference.py
         sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
         with tarfile.open(sklearn_model_tar_path, "w:gz") as tar:
             tar.add(model_joblib_path, arcname="model.joblib")
+            tar.add(inference_script_path, arcname="inference.py")
 
         sklearn_model_s3_key = "models/sklearn_model.tar.gz"
         s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
