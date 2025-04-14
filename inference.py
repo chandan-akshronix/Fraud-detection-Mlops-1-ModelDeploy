@@ -132,7 +132,7 @@ class FeatureEngineeringTransformer(BaseEstimator, TransformerMixin):
 
 def model_fn(model_dir):
     """Load the model from the model directory."""
-    model_path = os.path.join(model_dir, "preprocessor.pkl")
+    model_path = os.path.join(model_dir, "model.joblib")
     logger.info(f"Loading preprocessor from {model_path}")
     model = joblib.load(model_path)  # Using joblib since pickle is used in preprocess.py
     return model
