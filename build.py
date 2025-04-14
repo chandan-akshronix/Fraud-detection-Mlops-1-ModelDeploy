@@ -202,9 +202,11 @@ if __name__ == "__main__":
             for item in os.listdir(tmpdirname):
                 if item != "sklearn_model.tar.gz":
                     tar.add(os.path.join(tmpdirname, item), arcname=item)
+
         sklearn_model_s3_key = "models/sklearn_model.tar.gz"
         s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
         sklearn_model_data_url = f"s3://{args.s3_bucket}/{sklearn_model_s3_key}"
+        logger.info(f"Uploaded model artifact to {sklearn_model_data_url}")
 
     # Get XGBoost model details from the model package
     xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
