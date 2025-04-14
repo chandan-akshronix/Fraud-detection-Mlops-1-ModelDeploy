@@ -220,7 +220,7 @@ if __name__ == "__main__":
             logger.error("inference.py not found in script directory: %s", script_dir)
             raise FileNotFoundError("inference.py not found in script directory")
     
-        shutil.copy(inference_source_path, inference_script_path)
+        shutil.copy(source_inference_path, inference_script_path)
         logger.info("Copied inference.py to temporary directory")
 
         # Verify inference.py was copied
