@@ -83,7 +83,7 @@ def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url,
     if not "Tags" in stage_config:
         stage_config["Tags"] = {}
     # Define SKLearn image URI (hardcoded for us-west-2; adjust for your region)
-    sklearn_image = "865070037744.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
+    sklearn_image = "720646828776.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
 
     # Create new parameters
     new_params = {
@@ -94,7 +94,6 @@ def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url,
         "XGBoostModelDataUrl": xgboost_model_data_url,
         "ModelExecutionRoleArn": args.model_execution_role,
         "DataCaptureUploadPath": "s3://" + args.s3_bucket + '/datacapture-' + stage_config["Parameters"]["StageName"],
-        "ModelPackageName": model_package_arn,
     }
     new_tags = {
         "sagemaker:deployment-stage": stage_config["Parameters"]["StageName"],
@@ -219,7 +218,7 @@ if __name__ == "__main__":
     xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
     xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
 
-    # Write the staging sklearn_imagesklearn_imagesklearn_imagesklearn_imagesklearn_image
+    # Write the staging config
     with open(args.import_staging_config, "r") as f:
         staging_config = extend_config(
             args, model_package_arn, json.load(f), sklearn_model_data_url, xgboost_image, xgboost_model_data_url
