@@ -186,34 +186,9 @@ if __name__ == "__main__":
 
     # Process the preprocessing artifact
     s3 = boto3.client("s3")
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        # Download preprocess.tar.gz
-        print(f"Preprocess S3 path: {preprocess_s3_path}")
-        bucket, key = preprocess_s3_path.replace("s3://", "").split("/", 1)
-        local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
-        s3.download_file(bucket, key, local_preprocess_path)
 
-        # Extract tar.gz
-        with tarfile.open(local_preprocess_path, "r:gz") as tar:
-            tar.extractall(path=tmpdirname)
-
-        # Copy inference.py to the extracted directory (assumes inference.py is in inference/ directory)
-        inference_script_path = "inference/inference.py"
-        if not os.path.exists(inference_script_path):
-            raise FileNotFoundError(f"{inference_script_path} not found in the repository")
-        shutil.copy(inference_script_path, tmpdirname)
-
-        # Create new tar.gz for SKLearn model
-        sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
-        with tarfile.open(sklearn_model_tar_path, "w:gz") as tar:
-            for item in os.listdir(tmpdirname):
-                if item != "sklearn_model.tar.gz":
-                    tar.add(os.path.join(tmpdirname, item), arcname=item)
-
-        # Upload to S3
-        sklearn_model_s3_key = "models/sklearn_model.tar.gz"
-        s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
-        sklearn_model_data_url = f"s3://{args.s3_bucket}/{sklearn_model_s3_key}"
+    # Upload to S3
+    sklearn_model_data_url = preprocess_s3_path
 
     # Get XGBoost model details from the model package
     xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
