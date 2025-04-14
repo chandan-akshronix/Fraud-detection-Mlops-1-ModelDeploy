@@ -187,8 +187,24 @@ if __name__ == "__main__":
     # Process the preprocessing artifact
     s3 = boto3.client("s3")
 
-    # Upload to S3
-    sklearn_model_data_url = preprocess_s3_path
+    s3 = boto3.client("s3")
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        bucket, key = preprocess_s3_path.replace("s3://", "").split("/", 1)
+        local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
+        s3.download_file(bucket, key, local_preprocess_path)
+        with tarfile.open(local_preprocess_path, "r:gz") as tar:
+            tar.extractall(path=tmpdirname)
+        import os
+        if os.path.exists(os.path.join(tmpdirname, "preprocessor.pkl")):
+            os.rename(os.path.join(tmpdirname, "preprocessor.pkl"), os.path.join(tmpdirname, "model.joblib"))
+        sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
+        with tarfile.open(sklearn_model_tar_path, "w:gz") as tar:
+            for item in os.listdir(tmpdirname):
+                if item != "sklearn_model.tar.gz":
+                    tar.add(os.path.join(tmpdirname, item), arcname=item)
+        sklearn_model_s3_key = "models/sklearn_model.tar.gz"
+        s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
+        sklearn_model_data_url = f"s3://{args.s3_bucket}/{sklearn_model_s3_key}"
 
     # Get XGBoost model details from the model package
     xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
