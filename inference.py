@@ -43,8 +43,7 @@ def predict_fn(input_data, model):
 def output_fn(prediction, accept):
     """Format the prediction output."""
     if accept == "application/json":
-        if isinstance(prediction, np.ndarray):
-            prediction = pd.DataFrame(prediction)
+        prediction = pd.DataFrame(prediction)
         return prediction.to_json(orient="records")
     else:
         raise ValueError(f"Unsupported accept type: {accept}")
