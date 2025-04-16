@@ -42,10 +42,11 @@ def predict_fn(input_data, model):
 
 def output_fn(prediction, accept):
     """Format the prediction output."""
-    logger.info(f"Data Type of Data is {type(prediction)}")
+    logger.info(f"Transforming input data type {type(prediction)}")
     if accept == "application/json":
-        prediction_1 = pd.DataFrame(prediction)
-        logger.info(f"Data Type of Data is {type(prediction_1)}")
-        return prediction_1.to_json(orient="records")
+        if isinstance(prediction, np.ndarray):
+            prediction = pd.DataFrame(prediction)
+            logger.info(f"Transforming input data type {type(prediction)}")
+        return prediction.to_json(orient="records")
     else:
         raise ValueError(f"Unsupported accept type: {accept}")
