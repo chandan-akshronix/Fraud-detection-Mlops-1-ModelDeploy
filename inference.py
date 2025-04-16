@@ -46,7 +46,8 @@ def output_fn(prediction, accept):
     if accept == "application/json":
         if isinstance(prediction, np.ndarray):
             prediction = pd.DataFrame(prediction)
+            csv_data = prediction.to_csv(index=False).encode('utf-8')
             logger.info(f"Transforming input data type {type(prediction)}")
-        return prediction.to_json(orient="records")
+        return csv_data
     else:
         raise ValueError(f"Unsupported accept type: {accept}")
