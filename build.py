@@ -246,9 +246,6 @@ if __name__ == "__main__":
         if not os.path.exists(custom_transformers_script_path):
             logger.error("Failed to copy custom_transformers.py to temporary directory")
             raise FileNotFoundError("custom_transformers.py not found after copy")
-        
-        # Log files in temp directory for debugging
-        logger.info("Files in temp directory: %s", os.listdir(tmpdirname))
 
         # Create a new tarball with model.joblib and inference.py
         sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
@@ -256,6 +253,9 @@ if __name__ == "__main__":
             tar.add(model_joblib_path, arcname="model.joblib")
             tar.add(inference_script_path, arcname="inference.py")
             tar.add(custom_transformers_script_path, arcname="custom_transformers.py")
+
+        # Log files in temp directory for debugging
+        logger.info("Files in temp directory: %s", os.listdir(tmpdirname))
 
         sklearn_model_s3_key = "models/sklearn_model.tar.gz"
         s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
