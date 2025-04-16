@@ -46,7 +46,7 @@ def output_fn(prediction, accept):
     if accept == "application/json":
         if isinstance(prediction, np.ndarray):
             prediction = pd.DataFrame(prediction)
-            csv_data = prediction.to_csv(index=False).encode('utf-8')
+            csv_data = prediction.to_csv(index=False)
             logger.info(f"Transforming input data type {type(prediction)}")
         return csv_data
     else:
