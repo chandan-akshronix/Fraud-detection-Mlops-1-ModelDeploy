@@ -81,7 +81,7 @@ def output_fn(prediction, accept):
             logger.warning("Prediction DataFrame is empty before CSV conversion")
         
         # Convert to CSV and log full output
-        csv_data = prediction_df.to_csv(index=False)
+        csv_data = prediction_df.to_csv(index=False, header=False)
         logger.info(f"Output CSV type: {type(csv_data)}")
         logger.info(f"Full CSV output:\n{csv_data}")
         
