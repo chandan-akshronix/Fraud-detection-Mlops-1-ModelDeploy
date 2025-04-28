@@ -67,6 +67,9 @@ Resources:
             SAGEMAKER_SUBMIT_DIRECTORY: /opt/ml/model
         - Image: !Ref XGBoostImage
           ModelDataUrl: !Ref XGBoostModelDataUrl
+      Tags:
+        - Key: ModelPackageArn
+          Value: !Ref ModelPackageName
 
   EndpointConfig:
     Type: AWS::SageMaker::EndpointConfig
