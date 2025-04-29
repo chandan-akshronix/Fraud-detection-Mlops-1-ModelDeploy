@@ -41,7 +41,7 @@ def input_fn(request_body, request_content_type):
         raise ValueError(f"Unsupported content type: {request_content_type}")
 
 def predict_fn(input_data, model):
-    """Apply the preprocessing pipeline to the input data and include numerical features list."""
+    """Apply the preprocessing pipeline to the input data."""
     logger.info("Starting transformation of input data")
     try:
         transformed_data = model.transform(input_data)
@@ -60,14 +60,7 @@ def predict_fn(input_data, model):
         if transformed_data.size == 0:
             logger.warning("Transformed data is empty!")
         
-        # Create a list of numerical features from transformed data
-        if isinstance(transformed_data, pd.DataFrame):
-            features_list = transformed_data.values.tolist()
-        else:  # Assuming numpy array
-            features_list = transformed_data.tolist()
-        
-        # Return both prediction and features
-        return {"prediction": transformed_data, "features": features_list}
+        return transformed_data
     except Exception as e:
         logger.error(f"Error during transformation: {str(e)}")
         raise
@@ -76,27 +69,22 @@ def output_fn(prediction, accept):
     """Format the prediction output."""
     logger.info(f"Prediction data type: {type(prediction)}")
     if accept == "application/json":
-        # Extract prediction and features from the dictionary
-        prediction_data = prediction["prediction"]
-        features_list = prediction["features"]
-        
-        # Convert prediction to DataFrame if necessary
-        if isinstance(prediction_data, np.ndarray):
-            prediction_df = pd.DataFrame(prediction_data)
+        # Convert numpy array to DataFrame if necessary
+        if isinstance(prediction, np.ndarray):
+            prediction_df = pd.DataFrame(prediction)
             logger.info(f"Converted to DataFrame, type: {type(prediction_df)}")
         else:
-            prediction_df = prediction_data
+            prediction_df = prediction
         
         # Check if data is empty
         if prediction_df.empty:
             logger.warning("Prediction DataFrame is empty before CSV conversion")
         
-        # Convert prediction to CSV
+        # Convert to CSV and log full output
         csv_data = prediction_df.to_csv(index=False, header=False)
         logger.info(f"Output CSV type: {type(csv_data)}")
         logger.info(f"Full CSV output:\n{csv_data}")
         
-        # Return prediction and features as JSON
-        return json.dumps({"prediction": csv_data, "features": features_list}), "application/json"
+        return csv_data, 'text/csv'
     else:
         raise ValueError(f"Unsupported accept type: {accept}")
