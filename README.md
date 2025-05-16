@@ -43,9 +43,6 @@ Fraud-detection-Mlops-1-ModelDeploy/
 ### `.gitignore`
 - Excludes unnecessary files (e.g., `.sagemaker-code-config`) from version control.
 
-### `README.md`
-- Provides an overview, setup instructions, file descriptions, and usage guidelines for the repository.
-
 ### `build.py`
 - Prepares deployment artifacts by:
   - Retrieving the latest approved model package from the SageMaker Model Registry.
@@ -95,9 +92,15 @@ Fraud-detection-Mlops-1-ModelDeploy/
 
 ## Usage
 
-The deployment is automated using AWS CodeBuild and CloudFormation. Follow these steps:
+To deploy the model, ensure you have the following inputs ready:
 
-1. **Prepare Artifacts and Configurations**:
+- **Trained Model Artifacts**: From the ModelBuild repository.
+- **Preprocessing Artifact**: `model.joblib` for SKLearn.
+- **Configuration Files**: `staging-config.json` and `prod-config.json`.
+
+Follow these steps:
+
+1. **Run the Build Script**:
    - Execute `build.py` with the required arguments:
      ```bash
      python build.py --model-execution-role "arn:aws:iam::123456789012:role/SageMakerRole" \
@@ -108,10 +111,10 @@ The deployment is automated using AWS CodeBuild and CloudFormation. Follow these
                      --export-staging-config "staging-config-export.json" \
                      --export-prod-config "prod-config-export.json"
      ```
-   - This generates updated configuration files and uploads artifacts to S3.
+   - This script prepares the artifacts and extends the configuration files.
 
 2. **Deploy the CloudFormation Stack**:
-   - Deploy the stack using the AWS CLI:
+   - Use the AWS CLI to deploy the stack with the updated configuration:
      ```bash
      aws cloudformation deploy \
          --template-file <EXPORT_TEMPLATE_NAME> \
@@ -121,7 +124,7 @@ The deployment is automated using AWS CodeBuild and CloudFormation. Follow these
      ```
 
 3. **Test the Endpoint**:
-   - Validate the endpoint with the test script:
+   - Validate the deployment with the test script:
      ```bash
      python test/test.py --endpoint-name "FraudDetection-staging"
      ```
@@ -135,6 +138,28 @@ The deployment is automated using AWS CodeBuild and CloudFormation. Follow these
 5. **Multi-Container Workflow**: SKLearn preprocesses data, and XGBoost generates predictions.
 6. **Testing**: Validates the endpoint’s functionality.
 
+### Inputs and Outputs
+
+#### Inputs
+- **Trained Model Artifacts**:
+  - XGBoost model artifact from the ModelBuild repository.
+  - Preprocessing artifact (e.g., `model.joblib`) for the SKLearn container.
+- **Configuration Files**:
+  - `staging-config.json`: Configuration for the staging environment.
+  - `prod-config.json`: Configuration for the production environment.
+- **CloudFormation Template**:
+  - `endpoint-config-template.yml`: Defines the SageMaker resources for deployment.
+- **Scripts**:
+  - `build.py`: Prepares artifacts and configurations for deployment.
+  - `inference.py`: Handles preprocessing in the SKLearn container.
+  - `custom_transformers.py`: Custom preprocessing logic.
+
+#### Outputs
+- **Deployed SageMaker Endpoint**: The live endpoint for model inference.
+- **Updated Configuration Files**: Extended configurations (e.g., `staging-config-export.json`) with deployment-specific parameters.
+- **Deployment Logs**: Logs generated during the build and deployment process.
+- **Test Results**: Output from `test.py` validating the endpoint's functionality.
+
 ## Integration with ModelBuild
 
 This repository works in tandem with `Fraud-detection-Mlops-1-ModelBuild`:
@@ -142,9 +167,13 @@ This repository works in tandem with `Fraud-detection-Mlops-1-ModelBuild`:
 - **ModelDeploy**: Deploys the registered model to SageMaker.
 - Shared `custom_transformers.py` ensures preprocessing consistency.
 
-## Contributing
+## Suggestions for Improvement
 
-Contributions are encouraged! Refer to `CONTRIBUTING.md` (if available) for guidelines on pull requests and our code of conduct.
+- **Enhanced Testing**: Add edge cases and performance tests to `test.py`.
+- **Automated Rollbacks**: Implement rollback logic for failed deployments.
+- **Monitoring**: Integrate with a ModelMonitor repository for real-time insights.
+- **Documentation**: Add architecture diagrams and logging details.
+- **Security**: Enforce S3 encryption and least-privilege IAM roles.
 
 ## License
 
