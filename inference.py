@@ -23,6 +23,7 @@ def model_fn(model_dir):
     # Load XGBoost model
     model_path = os.path.join(model_dir, "xgboost-model")
     logger.info(f"Loading XGBoost model from {model_path}")
+    logger.info(f"Model path: {model_path}, exists: {os.path.exists(model_path)}, size: {os.path.getsize(model_path)} bytes")
     model = xgb.Booster()
     model.load_model(model_path)
     
