@@ -1,8 +1,8 @@
-import joblib
 import os
 import json
-import numpy as np
+import joblib
 import logging
+import numpy as np
 import xgboost as xgb
 
 logger = logging.getLogger(__name__)
@@ -10,63 +10,45 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 def model_fn(model_dir):
-    """Load both the preprocessing pipeline and the XGBoost model."""
-    # Load preprocessing pipeline
-    preprocessor_path = os.path.join(model_dir, "model.joblib")
-    logger.info(f"Loading preprocessor from {preprocessor_path}")
-    preprocessor = joblib.load(preprocessor_path)
-    
-    # Load XGBoost model
-    model_path = os.path.join(model_dir, "xgboost-model")
-    logger.info(f"Loading XGBoost model from {model_path}")
+    """Load preprocessing pipeline and XGBoost model."""
+    preprocessor = joblib.load(os.path.join(model_dir, "model.joblib"))
     model = xgb.Booster()
-    model.load_model(model_path)
-    
+    model.load_model(os.path.join(model_dir, "xgboost-model"))
+    logger.info("Preprocessor and model loaded successfully")
     return {"preprocessor": preprocessor, "model": model}
 
 def input_fn(request_body, request_content_type):
-    """Parse input data from the request."""
-    if request_content_type == "application/json":
-        input_data = json.loads(request_body)
-        if isinstance(input_data, dict):
-            data = np.array([list(input_data.values())])
-        elif isinstance(input_data, list):
-            data = np.array(input_data)
-        else:
-            raise ValueError("Input data must be a JSON object or array")
-        
-        logger.info(f"Input data shape: {data.shape}")
-        return data
-    else:
+    """Efficient JSON parsing and array conversion."""
+    if request_content_type != "application/json":
         raise ValueError(f"Unsupported content type: {request_content_type}")
+    
+    input_data = json.loads(request_body)
+    if isinstance(input_data, dict):
+        return np.array([list(input_data.values())])
+    elif isinstance(input_data, list):
+        return np.array(input_data)
+    raise ValueError("Input must be a JSON object or array")
 
 def predict_fn(input_data, models):
-    """Apply preprocessing and generate predictions."""
-    preprocessor = models["preprocessor"]
-    model = models["model"]
-    
-    logger.info("Starting transformation and prediction")
+    """Transform input and predict with XGBoost."""
     try:
-        # Preprocess the input data
-        transformed_data = preprocessor.transform(input_data)
-        
-        # Convert to DMatrix for XGBoost
-        dmatrix = xgb.DMatrix(transformed_data)
-        
-        # Generate predictions
-        predictions = model.predict(dmatrix)
-        
-        logger.info(f"Predictions: {predictions}")
-        return predictions
+        transformed = models["preprocessor"].transform(input_data)
+        dmatrix = xgb.DMatrix(transformed)
+        return models["model"].predict(dmatrix)
     except Exception as e:
-        logger.error(f"Error during inference: {str(e)}")
+        logger.exception("Prediction failed")
         raise
 
-def output_fn(prediction, accept):
-    """Format the prediction output."""
-    if accept == "application/json":
-        # Convert predictions to a list for JSON serialization
-        prediction_list = prediction.tolist()
-        return json.dumps({"predictions": prediction_list}), "application/json"
-    else:
+def output_fn(predictions, accept):
+    """Return compact JSON with class & probability."""
+    if accept != "application/json":
         raise ValueError(f"Unsupported accept type: {accept}")
+    
+    results = [
+        {
+            "class": int(p > 0.5),
+            "probability": round(p * 100 if p > 0.5 else (1 - p) * 100, 2)
+        }
+        for p in predictions
+    ]
+    return json.dumps(results), "application/json"
