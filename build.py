@@ -182,12 +182,11 @@ if __name__ == "__main__":
     if not preprocess_s3_path:
         raise ValueError("preprocess_s3_path not provided and not found in model package customer metadata")
 
-    xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
     xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
     if not xgboost_model_s3_path:
         logger.error("XGBoost model S3 path not found in model package InferenceSpecification")
-    raise ValueError("XGBoost model S3 path not found")
-    logger.info(f"XGBoost model S3 path: {xgboost_model_s3_path}")
+        raise ValueError("XGBoost model S3 path not found")
+    logger.info(f"XGBoost model S3 path: {xgboost_model_data_url}")
 
     # Process the preprocessing artifact
     s3 = boto3.client("s3")
@@ -198,6 +197,7 @@ if __name__ == "__main__":
         local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
         s3.download_file(bucket, key, local_preprocess_path)
 
+        bucket, key = xgboost_model_data_url.replace("s3://", "").split("/", 1)
         local_xgboost_model_path = os.path.join(tmpdirname, "xgboost-model")
         s3.download_file(bucket, key, local_xgboost_model_path)
         logger.info(f"Downloaded XGBoost model to {local_xgboost_model_path}")
@@ -223,7 +223,6 @@ if __name__ == "__main__":
         
         # Copy inference.py from the same directory as build.py
         script_dir = os.path.dirname(os.path.abspath(__file__))  # Directory of build.py
-        requirements_path = os.path.join(script_dir, "requirements.txt")
         source_inference_path = os.path.join(script_dir, "inference.py")
         inference_script_path = os.path.join(tmpdirname, "inference.py")
 
@@ -255,6 +254,11 @@ if __name__ == "__main__":
         if not os.path.exists(custom_transformers_script_path):
             logger.error("Failed to copy custom_transformers.py to temporary directory")
             raise FileNotFoundError("custom_transformers.py not found after copy")
+
+        requirements_path = os.path.join(script_dir, "requirements.txt")
+        if not os.path.exists(requirements_path):
+            logger.error("requirements.txt not found in script directory: %s", script_dir)
+            raise FileNotFoundError("requirements.txt not found in script directory")
 
         # Create a new tarball with model.joblib and inference.py
         sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
