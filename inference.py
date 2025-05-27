@@ -15,7 +15,7 @@ logger.addHandler(logging.StreamHandler())
 def model_fn(model_dir):
     """Load both the preprocessing pipeline and the XGBoost model."""
     # Load preprocessing pipeline
-    preprocessor_path = os.path.join(model_dir, "preprocessor.joblib")
+    preprocessor_path = os.path.join(model_dir, "model.joblib")
     logger.info(f"Loading preprocessor from {preprocessor_path}")
     preprocessor = joblib.load(preprocessor_path)
     
