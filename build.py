@@ -62,7 +62,7 @@ def get_approved_package(model_package_group_name):
         raise Exception(error_message)
 
 
-def extend_config(args, model_package_arn, stage_config, model_image, model_data_url):
+def extend_config(args, model_package_arn, stage_config, model_data_url):
     """
     Extend the stage configuration with additional parameters and tags.
 
@@ -83,7 +83,7 @@ def extend_config(args, model_package_arn, stage_config, model_image, model_data
         stage_config["Tags"] = {}
 
     # Define SKLearn image URI (hardcoded for us-west-2; adjust for your region)
-    model_image = "720646828776.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
+    model_image="720646828776.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
 
     # Create new parameters
     new_params = {
@@ -262,7 +262,7 @@ if __name__ == "__main__":
     # Write the staging config
     with open(args.import_staging_config, "r") as f:
         staging_config = extend_config(
-            args, model_package_arn, json.load(f), model_data_url, model_image)
+            args, model_package_arn, json.load(f), model_data_url)
 
     logger.debug("Staging config: {}".format(json.dumps(staging_config, indent=4)))
     with open(args.export_staging_config, "w") as f:
@@ -273,8 +273,8 @@ if __name__ == "__main__":
     # Write the prod config for CodePipeline
     with open(args.import_prod_config, "r") as f:
         prod_config = extend_config(
-            args, model_package_arn, json.load(f), model_data_url, model_image)
-            
+            args, model_package_arn, json.load(f), model_data_url)
+
     logger.debug("Prod config: {}".format(json.dumps(prod_config, indent=4)))
     with open(args.export_prod_config, "w") as f:
         json.dump(prod_config, f, indent=4)
