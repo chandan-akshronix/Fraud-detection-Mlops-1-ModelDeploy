@@ -212,6 +212,7 @@ if __name__ == "__main__":
         
         # Copy inference.py from the same directory as build.py
         script_dir = os.path.dirname(os.path.abspath(__file__))  # Directory of build.py
+        requirements_path = os.path.join(script_dir, "requirements.txt")
         source_inference_path = os.path.join(script_dir, "inference.py")
         inference_script_path = os.path.join(tmpdirname, "inference.py")
 
@@ -250,6 +251,7 @@ if __name__ == "__main__":
             tar.add(model_joblib_path, arcname="model.joblib")
             tar.add(inference_script_path, arcname="inference.py")
             tar.add(custom_transformers_script_path, arcname="custom_transformers.py")
+            tar.add(requirements_path, arcname="requirements.txt")
 
         # Log files in temp directory for debugging
         logger.info("Files in temp directory: %s", os.listdir(tmpdirname))
