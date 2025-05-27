@@ -198,13 +198,17 @@ if __name__ == "__main__":
         s3.download_file(bucket, key, local_preprocess_path)
 
         bucket, key = xgboost_model_data_url.replace("s3://", "").split("/", 1)
-        local_xgboost_model_path = os.path.join(tmpdirname, "xgboost-model")
+        local_xgboost_model_path = os.path.join(tmpdirname, "model.tar.gz")
         s3.download_file(bucket, key, local_xgboost_model_path)
         logger.info(f"Downloaded XGBoost model to {local_xgboost_model_path}")
 
         # Extract the preprocess tarball
         with tarfile.open(local_preprocess_path, "r:gz") as tar:
             tar.extractall(path=tmpdirname)
+
+        # Extract the model tarball
+        with tarfile.open(local_xgboost_model_path, "r:gz") as tar:
+            tar.extractall(path=tmpdirname1)
 
         # Ensure model.joblib exists
         preprocess_path = os.path.join(tmpdirname, "preprocessor.pkl")
@@ -220,7 +224,14 @@ if __name__ == "__main__":
         else:
             logger.error("No preprocessor.pkl or model.joblib found in preprocess.tar.gz")
             raise FileNotFoundError("No model file found")
-        
+       
+        # Locate the extracted XGBoost model file
+        xgboost_model_file = os.path.join(tmpdirname, "xgboost-model")
+        if not os.path.exists(xgboost_model_file):
+            logger.error("xgboost-model not found in extracted files")
+            raise FileNotFoundError("xgboost-model not found in model.tar.gz")
+
+
         # Copy inference.py from the same directory as build.py
         script_dir = os.path.dirname(os.path.abspath(__file__))  # Directory of build.py
         source_inference_path = os.path.join(script_dir, "inference.py")
@@ -264,7 +275,7 @@ if __name__ == "__main__":
         sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
         with tarfile.open(sklearn_model_tar_path, "w:gz") as tar:
             tar.add(model_joblib_path, arcname="model.joblib")
-            tar.add(local_xgboost_model_path, arcname="xgboost-model")
+            tar.add(xgboost_model_file, arcname="xgboost-model")
             tar.add(inference_script_path, arcname="inference.py")
             tar.add(custom_transformers_script_path, arcname="custom_transformers.py")
             tar.add(requirements_path, arcname="requirements.txt")
