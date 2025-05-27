@@ -182,6 +182,13 @@ if __name__ == "__main__":
     if not preprocess_s3_path:
         raise ValueError("preprocess_s3_path not provided and not found in model package customer metadata")
 
+    xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
+    xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
+    if not xgboost_model_s3_path:
+        logger.error("XGBoost model S3 path not found in model package InferenceSpecification")
+    raise ValueError("XGBoost model S3 path not found")
+    logger.info(f"XGBoost model S3 path: {xgboost_model_s3_path}")
+
     # Process the preprocessing artifact
     s3 = boto3.client("s3")
 
@@ -190,6 +197,10 @@ if __name__ == "__main__":
         bucket, key = preprocess_s3_path.replace("s3://", "").split("/", 1)
         local_preprocess_path = os.path.join(tmpdirname, "preprocess.tar.gz")
         s3.download_file(bucket, key, local_preprocess_path)
+
+        local_xgboost_model_path = os.path.join(tmpdirname, "xgboost-model")
+        s3.download_file(bucket, key, local_xgboost_model_path)
+        logger.info(f"Downloaded XGBoost model to {local_xgboost_model_path}")
 
         # Extract the preprocess tarball
         with tarfile.open(local_preprocess_path, "r:gz") as tar:
@@ -249,6 +260,7 @@ if __name__ == "__main__":
         sklearn_model_tar_path = os.path.join(tmpdirname, "sklearn_model.tar.gz")
         with tarfile.open(sklearn_model_tar_path, "w:gz") as tar:
             tar.add(model_joblib_path, arcname="model.joblib")
+            tar.add(local_xgboost_model_path, arcname="xgboost-model")
             tar.add(inference_script_path, arcname="inference.py")
             tar.add(custom_transformers_script_path, arcname="custom_transformers.py")
             tar.add(requirements_path, arcname="requirements.txt")
