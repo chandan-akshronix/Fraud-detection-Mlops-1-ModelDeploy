@@ -183,7 +183,7 @@ if __name__ == "__main__":
         raise ValueError("preprocess_s3_path not provided and not found in model package customer metadata")
 
     xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
-    if not xgboost_model_s3_path:
+    if not xgboost_model_data_url:
         logger.error("XGBoost model S3 path not found in model package InferenceSpecification")
         raise ValueError("XGBoost model S3 path not found")
     logger.info(f"XGBoost model S3 path: {xgboost_model_data_url}")
