@@ -27,10 +27,11 @@ def input_fn(request_body, request_content_type):
     
     input_data = json.loads(request_body)
     if isinstance(input_data, dict):
-        return np.array([list(input_data.values())])
+        return pd.DataFrame([input_data])  # Single record
     elif isinstance(input_data, list):
-        return np.array(input_data)
-    raise ValueError("Input must be a JSON object or array")
+        return pd.DataFrame(input_data)    # Batch of records
+    else:
+        raise ValueError("Input must be a JSON object or array")
 
 def predict_fn(input_data, models):
     """Transform input and predict with XGBoost."""
