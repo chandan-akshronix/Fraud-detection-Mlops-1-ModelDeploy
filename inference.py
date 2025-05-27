@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
+from sklearn import set_config
+set_config(transform_output="pandas")
+
 def model_fn(model_dir):
     """Load preprocessing pipeline and XGBoost model."""
     preprocessor = joblib.load(os.path.join(model_dir, "model.joblib"))
@@ -52,4 +55,3 @@ def output_fn(predictions, accept):
         for p in predictions
     ]
     return json.dumps(results), "application/json"
-    
