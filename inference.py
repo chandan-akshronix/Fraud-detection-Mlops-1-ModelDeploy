@@ -7,6 +7,7 @@ import logging
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import StandardScaler
 from custom_transformers import FrequencyEncoder, FeatureEngineeringTransformer
+import xgboost as xgb
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
