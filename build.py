@@ -62,7 +62,7 @@ def get_approved_package(model_package_group_name):
         raise Exception(error_message)
 
 
-def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url, xgboost_image, xgboost_model_data_url):
+def extend_config(args, model_package_arn, stage_config, model_image, model_data_url):
     """
     Extend the stage configuration with additional parameters and tags.
 
@@ -70,9 +70,8 @@ def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url,
         args: Command-line arguments.
         model_package_arn: ARN of the approved model package.
         stage_config: The original stage configuration dictionary.
-        sklearn_model_data_url: S3 URL of the SKLearn model artifact.
-        xgboost_image: ECR image URI for the XGBoost model.
-        xgboost_model_data_url: S3 URL of the XGBoost model artifact.
+        model_image: ECR image URI for the XGBoost model.
+        model_data_url: S3 URL of the XGBoost model artifact.
 
     Returns:
         Updated configuration dictionary.
@@ -82,16 +81,15 @@ def extend_config(args, model_package_arn, stage_config, sklearn_model_data_url,
         raise Exception("Configuration file must include StageName parameter")
     if not "Tags" in stage_config:
         stage_config["Tags"] = {}
+
     # Define SKLearn image URI (hardcoded for us-west-2; adjust for your region)
-    sklearn_image = "720646828776.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
+    model_image = "720646828776.dkr.ecr.ap-south-1.amazonaws.com/sagemaker-scikit-learn:1.2-1-cpu-py3"
 
     # Create new parameters
     new_params = {
         "SageMakerProjectName": args.sagemaker_project_name,
-        "SKLearnImage": sklearn_image,
-        "SKLearnModelDataUrl": sklearn_model_data_url,
-        "XGBoostImage": xgboost_image,
-        "XGBoostModelDataUrl": xgboost_model_data_url,
+        "ModelImage": model_image,
+        "ModelDataUrl": model_data_url,
         "ModelExecutionRoleArn": args.model_execution_role,
         "DataCaptureUploadPath": "s3://" + args.s3_bucket + '/datacapture-' + stage_config["Parameters"]["StageName"],
         "ModelPackageName": model_package_arn,
@@ -187,7 +185,6 @@ if __name__ == "__main__":
     # Process the preprocessing artifact
     s3 = boto3.client("s3")
 
-    s3 = boto3.client("s3")
     with tempfile.TemporaryDirectory() as tmpdirname:
         # Download the input preprocess tarball
         bucket, key = preprocess_s3_path.replace("s3://", "").split("/", 1)
@@ -257,20 +254,16 @@ if __name__ == "__main__":
         # Log files in temp directory for debugging
         logger.info("Files in temp directory: %s", os.listdir(tmpdirname))
 
-        sklearn_model_s3_key = "models/sklearn_model.tar.gz"
-        s3.upload_file(sklearn_model_tar_path, args.s3_bucket, sklearn_model_s3_key)
-        sklearn_model_data_url = f"s3://{args.s3_bucket}/{sklearn_model_s3_key}"
-        logger.info(f"Uploaded model artifact to {sklearn_model_data_url}")
-
-    # Get XGBoost model details from the model package
-    xgboost_image = response["InferenceSpecification"]["Containers"][0]["Image"]
-    xgboost_model_data_url = response["InferenceSpecification"]["Containers"][0]["ModelDataUrl"]
+        model_s3_key = "models/sklearn_model.tar.gz"
+        s3.upload_file(sklearn_model_tar_path, args.s3_bucket, model_s3_key)
+        model_data_url = f"s3://{args.s3_bucket}/{model_s3_key}"
+        logger.info(f"Uploaded model artifact to {model_data_url}")
 
     # Write the staging config
     with open(args.import_staging_config, "r") as f:
         staging_config = extend_config(
-            args, model_package_arn, json.load(f), sklearn_model_data_url, xgboost_image, xgboost_model_data_url
-        )
+            args, model_package_arn, json.load(f), model_data_url, model_image)
+
     logger.debug("Staging config: {}".format(json.dumps(staging_config, indent=4)))
     with open(args.export_staging_config, "w") as f:
         json.dump(staging_config, f, indent=4)
@@ -280,8 +273,8 @@ if __name__ == "__main__":
     # Write the prod config for CodePipeline
     with open(args.import_prod_config, "r") as f:
         prod_config = extend_config(
-            args, model_package_arn, json.load(f), sklearn_model_data_url, xgboost_image, xgboost_model_data_url
-        )
+            args, model_package_arn, json.load(f), model_data_url, model_image)
+            
     logger.debug("Prod config: {}".format(json.dumps(prod_config, indent=4)))
     with open(args.export_prod_config, "w") as f:
         json.dump(prod_config, f, indent=4)
