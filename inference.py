@@ -2,11 +2,7 @@ import joblib
 import os
 import json
 import numpy as np
-import pandas as pd
 import logging
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import StandardScaler
-from custom_transformers import FrequencyEncoder, FeatureEngineeringTransformer
 import xgboost as xgb
 
 logger = logging.getLogger(__name__)
@@ -23,7 +19,6 @@ def model_fn(model_dir):
     # Load XGBoost model
     model_path = os.path.join(model_dir, "xgboost-model")
     logger.info(f"Loading XGBoost model from {model_path}")
-    logger.info(f"Model path: {model_path}, exists: {os.path.exists(model_path)}, size: {os.path.getsize(model_path)} bytes")
     model = xgb.Booster()
     model.load_model(model_path)
     
@@ -34,15 +29,13 @@ def input_fn(request_body, request_content_type):
     if request_content_type == "application/json":
         input_data = json.loads(request_body)
         if isinstance(input_data, dict):
-            data = pd.DataFrame([input_data])
+            data = np.array([list(input_data.values())])
         elif isinstance(input_data, list):
-            data = pd.DataFrame(input_data)
+            data = np.array(input_data)
         else:
             raise ValueError("Input data must be a JSON object or array")
         
         logger.info(f"Input data shape: {data.shape}")
-        logger.info(f"Input data columns: {list(data.columns)}")
-        logger.info(f"Full input data:\n{data.to_string(index=False)}")
         return data
     else:
         raise ValueError(f"Unsupported content type: {request_content_type}")
@@ -71,14 +64,9 @@ def predict_fn(input_data, models):
 
 def output_fn(prediction, accept):
     """Format the prediction output."""
-    logger.info(f"Prediction data type: {type(prediction)}")
     if accept == "application/json":
-        # Convert predictions to a DataFrame
-        prediction_df = pd.DataFrame(prediction, columns=["prediction"])
-        
-        # Convert to CSV
-        csv_data = prediction_df.to_csv(index=False, header=False)
-        logger.info(f"Output CSV:\n{csv_data}")
-        return csv_data, "text/csv"
+        # Convert predictions to a list for JSON serialization
+        prediction_list = prediction.tolist()
+        return json.dumps({"predictions": prediction_list}), "application/json"
     else:
         raise ValueError(f"Unsupported accept type: {accept}")
