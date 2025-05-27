@@ -208,7 +208,7 @@ if __name__ == "__main__":
 
         # Extract the model tarball
         with tarfile.open(local_xgboost_model_path, "r:gz") as tar:
-            tar.extractall(path=tmpdirname1)
+            tar.extractall(path=tmpdirname)
 
         # Ensure model.joblib exists
         preprocess_path = os.path.join(tmpdirname, "preprocessor.pkl")
