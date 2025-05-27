@@ -52,3 +52,4 @@ def output_fn(predictions, accept):
         for p in predictions
     ]
     return json.dumps(results), "application/json"
+    
