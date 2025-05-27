@@ -3,6 +3,7 @@ import json
 import joblib
 import logging
 import numpy as np
+import pandas as pd
 import xgboost as xgb
 
 logger = logging.getLogger(__name__)
