@@ -62,7 +62,7 @@ def input_fn(request_body, request_content_type):
     else:
         raise ValueError("Input must be a JSON object or array")
 
-    logger.info(f"input_fn: DataFrame columns: {df.columns.tolist()}")
+    # logger.info(f"input_fn: DataFrame columns: {df.columns.tolist()}")
 
     # Robust find of transaction ID column
     trans_col = None
@@ -75,7 +75,7 @@ def input_fn(request_body, request_content_type):
     if trans_col is not None:
         transaction_ids = df[trans_col].astype(str)
         features_df = df.drop(columns=[trans_col], errors="ignore")
-        logger.info(f"input_fn: Using transaction ID column '{trans_col}'")
+        # logger.info(f"input_fn: Using transaction ID column '{trans_col}'")
     else:
         transaction_ids = pd.Series([None] * len(df))
         features_df = df
@@ -133,14 +133,19 @@ def output_fn(predictions_with_ids, accept):
 
     results = []
     for p, tid, rec in zip(preds, transaction_ids, raw_records):
-        results.append({
+        # Include full input_features if desired:
+        result = {
             "transaction_id": tid,
             "class": int(p > 0.5),
             "probability": round(float(p) * 100, 2),
-        })
+            "input_features": rec  # original dict
+        }
+        results.append(result)
+
 
     if len(results) and any(tid is not None for tid in transaction_ids):
         logger.info("output_fn: Writing to DynamoDB")
+        # log_batch_to_dynamodb may store only minimal fields or full raw_records if desired
         log_batch_to_dynamodb(transaction_ids, results)
     else:
         logger.warning("output_fn: No valid transaction IDs; skipping DynamoDB write")
