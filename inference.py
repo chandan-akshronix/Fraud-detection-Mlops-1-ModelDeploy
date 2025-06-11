@@ -89,7 +89,7 @@ def output_fn(predictions_with_ids, accept):
 
     results = []
 
-    for (i, (p, tid)), (_, row) in zip(enumerate(zip(predictions, transaction_ids)), original_inputs.iterrows()):
+    for p, tid, (_, row) in zip(predictions, transaction_ids, original_inputs.iterrows()):
         input_features = row.to_dict()
         result = {
             "transaction_id": tid,
