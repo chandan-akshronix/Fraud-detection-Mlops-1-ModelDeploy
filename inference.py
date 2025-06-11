@@ -10,90 +10,129 @@ import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime
 
-# Initialize DynamoDB
-dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "ap-south-1"))
-table = dynamodb.Table("StorageTable_Prod")
-
+# 1. Setup logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
+# 2. Initialize DynamoDB table resource (for logging results)
+dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "ap-south-1"))
+table = dynamodb.Table("StorageTable_Prod")
+
+# 3. sklearn config (if your pipeline uses DataFrame outputs)
 from sklearn import set_config
 set_config(transform_output="pandas")
 
+
 def log_batch_to_dynamodb(transaction_ids, results):
+    """
+    Batch-write prediction results to DynamoDB.
+    transaction_ids: pandas Series aligned with results
+    results: list of dicts, each containing at least transaction_id and other fields
+    """
     try:
         with table.batch_writer() as batch:
             for tid, result in zip(transaction_ids, results):
+                # Build item: you can adjust which fields to include
                 item = {
                     "TransactionID": str(tid),
                     "Record": {k: str(v) for k, v in result.items()},
                     "Timestamp": datetime.utcnow().isoformat(),
-                    "ModelVersion": "v1.0.0"
+                    # optionally add ModelVersion or other metadata
                 }
                 batch.put_item(Item=item)
+        logger.info(f"Logged {len(results)} items to DynamoDB")
     except ClientError as e:
         logger.error(f"Batch write failed: {e}")
 
 
 def model_fn(model_dir):
-    """Load preprocessing pipeline and XGBoost model."""
+    """
+    Load preprocessing pipeline and XGBoost model once.
+    """
+    # Adjust paths as needed
     preprocessor = joblib.load(os.path.join(model_dir, "model.joblib"))
     model = xgb.Booster()
     model.load_model(os.path.join(model_dir, "xgboost-model"))
     logger.info("Preprocessor and model loaded successfully")
     return {"preprocessor": preprocessor, "model": model}
 
+
 def input_fn(request_body, request_content_type):
-    """Efficient JSON parsing and array conversion."""
+    """
+    Parse JSON request (single dict or list), extract Transaction ID, and prepare features.
+    Returns:
+      features_df: pandas DataFrame for model.transform()
+      transaction_ids: pandas Series aligned with rows
+      raw_records: list of original input dicts (for output/logging)
+    """
     if request_content_type != "application/json":
         raise ValueError(f"Unsupported content type: {request_content_type}")
-    
     input_data = json.loads(request_body)
 
+    # Build DataFrame and raw_records list
     if isinstance(input_data, dict):
-        df = pd.DataFrame([input_data])  # Single record
+        raw_records = [input_data]
+        df = pd.DataFrame(raw_records)
     elif isinstance(input_data, list):
-        df = pd.DataFrame(input_data)    # Batch of records
+        raw_records = input_data
+        df = pd.DataFrame(raw_records)
     else:
         raise ValueError("Input must be a JSON object or array")
 
-    # Ensure transaction_ids is a pandas Series aligned with df
-    if "transaction_id" in df.columns:
-        transaction_ids = df["transaction_id"]
+    # Extract "Transaction ID" if present
+    if "Transaction ID" in df.columns:
+        transaction_ids = df["Transaction ID"].astype(str)
+        # Drop that column before passing to model
+        features_df = df.drop(columns=["Transaction ID"], errors="ignore")
     else:
+        # No Transaction ID field
         transaction_ids = pd.Series([None] * len(df))
+        features_df = df
 
-    # Drop transaction_id before passing to model
-    features_df = df.drop(columns=["transaction_id"], errors="ignore")
+    return features_df, transaction_ids.reset_index(drop=True), raw_records
 
-    return features_df, transaction_ids, df
 
 def predict_fn(input_data, models):
-    """Transform input and predict with XGBoost, always returning iterable predictions."""
+    """
+    Apply preprocessing and model prediction.
+    Returns normalized (preds_array, transaction_ids, raw_records).
+    """
     try:
-        features_df, transaction_ids, original_inputs = input_data
+        features_df, transaction_ids, raw_records = input_data
+
+        # 1. Preprocess (vectorized)
         transformed = models["preprocessor"].transform(features_df)
+
+        # 2. XGBoost prediction via Booster
         dmatrix = xgb.DMatrix(transformed)
         preds = models["model"].predict(dmatrix)
 
-        # Normalize preds to 1D array
+        # 3. Normalize preds to 1D numpy array
         if np.isscalar(preds) or isinstance(preds, np.generic):
             preds = np.array([preds])
         else:
             preds = np.asarray(preds)
 
-        # Ensure transaction_ids is a sequence of same length
-        # If it's a pandas Series, leave as is; if scalar or length mismatch, wrap
-        if not hasattr(transaction_ids, "__len__") or len(transaction_ids) != len(preds):
-            # e.g., single value
-            transaction_ids = pd.Series([transaction_ids]) if not hasattr(transaction_ids, "__len__") else pd.Series(transaction_ids).reset_index(drop=True)
-        # Ensure original_inputs is a DataFrame with matching rows
-        if not hasattr(original_inputs, "iterrows") or len(original_inputs) != len(preds):
-            # wrap single-row into DataFrame
-            original_inputs = pd.DataFrame([original_inputs]) if not hasattr(original_inputs, "iterrows") else original_inputs.reset_index(drop=True)
+        # 4. Align transaction_ids and raw_records if lengths mismatch
+        #    (usually only for single-record cases)
+        n = len(preds)
+        # transaction_ids: pandas Series
+        if len(transaction_ids) != n:
+            if len(transaction_ids) == 1:
+                transaction_ids = pd.Series([transaction_ids.iloc[0]] * n)
+            else:
+                # unexpected mismatch: reset to None
+                transaction_ids = pd.Series([None] * n)
+        # raw_records: list
+        if len(raw_records) != n:
+            if len(raw_records) == 1:
+                raw_records = [raw_records[0]] * n
+            else:
+                # unexpected: create empty dicts
+                raw_records = [{} for _ in range(n)]
 
-        return preds, transaction_ids, original_inputs
+        return preds, transaction_ids.reset_index(drop=True), raw_records
 
     except Exception as e:
         logger.exception("Prediction failed")
@@ -101,26 +140,34 @@ def predict_fn(input_data, models):
 
 
 def output_fn(predictions_with_ids, accept):
-    """Return JSON with class, probability, original features, and transaction_id, and log to DynamoDB."""
+    """
+    Build JSON response including:
+      - transaction_id
+      - class (0/1 by threshold 0.5)
+      - probability (p*100, rounded)
+      - input_features: the original raw dict
+    Also batch-log to DynamoDB if any non-null IDs.
+    """
     if accept != "application/json":
         raise ValueError(f"Unsupported accept type: {accept}")
 
-    predictions, transaction_ids, original_inputs = predictions_with_ids  # unpack all 3
+    preds, transaction_ids, raw_records = predictions_with_ids
 
     results = []
-
-    for p, tid, (_, row) in zip(predictions, transaction_ids, original_inputs.iterrows()):
-        input_features = row.to_dict()
+    # Iterate aligned preds, IDs, and raw input dicts
+    for p, tid, rec in zip(preds, transaction_ids, raw_records):
+        # Build result using original rec (dict). If rec lacks some fields, it's as-is.
         result = {
             "transaction_id": tid,
             "class": int(p > 0.5),
-            "probability": round(p * 100, 2),
-            "input_features": input_features
+            "probability": round(float(p) * 100, 2),
+            "input_features": rec
         }
         results.append(result)
-    
-    # Log once after collecting all results
-    if len(results) > 0 and any(transaction_ids):
+
+    # Batch-write if any non-null IDs
+    if len(results) and any([tid is not None for tid in transaction_ids]):
+        # Use pandas Series transaction_ids aligned with results
         log_batch_to_dynamodb(transaction_ids, results)
 
     return json.dumps(results), "application/json"
