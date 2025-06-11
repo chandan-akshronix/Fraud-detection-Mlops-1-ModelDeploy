@@ -58,8 +58,11 @@ def input_fn(request_body, request_content_type):
     else:
         raise ValueError("Input must be a JSON object or array")
 
-    # Extract transaction IDs (if present)
-    transaction_ids = df.get("transaction_id", [None] * len(df))
+    # Ensure transaction_ids is a pandas Series aligned with df
+    if "transaction_id" in df.columns:
+        transaction_ids = df["transaction_id"]
+    else:
+        transaction_ids = pd.Series([None] * len(df))
 
     # Drop transaction_id before passing to model
     features_df = df.drop(columns=["transaction_id"], errors="ignore")
