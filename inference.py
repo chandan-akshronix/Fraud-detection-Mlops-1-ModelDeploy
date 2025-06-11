@@ -161,7 +161,7 @@ def output_fn(predictions_with_ids, accept):
             "transaction_id": tid,
             "class": int(p > 0.5),
             "probability": round(float(p) * 100, 2),
-            "input_features": rec
+            # "input_features": rec
         }
         results.append(result)
 
