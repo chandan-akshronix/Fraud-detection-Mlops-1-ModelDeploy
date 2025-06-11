@@ -72,10 +72,11 @@ def input_fn(request_body, request_content_type):
 def predict_fn(input_data, models):
     """Transform input and predict with XGBoost."""
     try:
-        features_df, _, _ = input_data   # Note only take features_df as input_data = (features_df, transaction_ids, df), then features_df=features_df, _ is used to ignore others
+        features_df, transaction_ids, original_inputs = input_data   # Note only take features_df as input_data = (features_df, transaction_ids, df), then features_df=features_df,transaction_ids=transaction_ids etc
         transformed = models["preprocessor"].transform(features_df)
         dmatrix = xgb.DMatrix(transformed)
-        return models["model"].predict(dmatrix)
+        predictions = models["model"].predict(dmatrix)
+        return predictions, transaction_ids, original_inputs
     except Exception as e:
         logger.exception("Prediction failed")
         raise
