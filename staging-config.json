@@ -1,7 +1,7 @@
 {
   "Parameters": {
     "StageName": "staging",
-    "EndpointInstanceCount": "5",
+    "EndpointInstanceCount": "1",
     "EndpointInstanceType": "ml.m5.large",
     "EnableDataCapture": "false",
     "SamplingPercentage":"0"

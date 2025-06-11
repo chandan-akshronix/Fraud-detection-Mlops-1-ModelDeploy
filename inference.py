@@ -70,16 +70,35 @@ def input_fn(request_body, request_content_type):
     return features_df, transaction_ids, df
 
 def predict_fn(input_data, models):
-    """Transform input and predict with XGBoost."""
+    """Transform input and predict with XGBoost, always returning iterable predictions."""
     try:
-        features_df, transaction_ids, original_inputs = input_data   # Note only take features_df as input_data = (features_df, transaction_ids, df), then features_df=features_df,transaction_ids=transaction_ids etc
+        features_df, transaction_ids, original_inputs = input_data
         transformed = models["preprocessor"].transform(features_df)
         dmatrix = xgb.DMatrix(transformed)
-        predictions = models["model"].predict(dmatrix)
-        return predictions, transaction_ids, original_inputs
+        preds = models["model"].predict(dmatrix)
+
+        # Normalize preds to 1D array
+        if np.isscalar(preds) or isinstance(preds, np.generic):
+            preds = np.array([preds])
+        else:
+            preds = np.asarray(preds)
+
+        # Ensure transaction_ids is a sequence of same length
+        # If it's a pandas Series, leave as is; if scalar or length mismatch, wrap
+        if not hasattr(transaction_ids, "__len__") or len(transaction_ids) != len(preds):
+            # e.g., single value
+            transaction_ids = pd.Series([transaction_ids]) if not hasattr(transaction_ids, "__len__") else pd.Series(transaction_ids).reset_index(drop=True)
+        # Ensure original_inputs is a DataFrame with matching rows
+        if not hasattr(original_inputs, "iterrows") or len(original_inputs) != len(preds):
+            # wrap single-row into DataFrame
+            original_inputs = pd.DataFrame([original_inputs]) if not hasattr(original_inputs, "iterrows") else original_inputs.reset_index(drop=True)
+
+        return preds, transaction_ids, original_inputs
+
     except Exception as e:
         logger.exception("Prediction failed")
         raise
+
 
 def output_fn(predictions_with_ids, accept):
     """Return JSON with class, probability, original features, and transaction_id, and log to DynamoDB."""
@@ -101,7 +120,7 @@ def output_fn(predictions_with_ids, accept):
         results.append(result)
     
     # Log once after collecting all results
-    if any(transaction_ids):
+    if len(results) > 0 and any(transaction_ids):
         log_batch_to_dynamodb(transaction_ids, results)
 
     return json.dumps(results), "application/json"
