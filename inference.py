@@ -72,6 +72,7 @@ def input_fn(request_body, request_content_type):
 def predict_fn(input_data, models):
     """Transform input and predict with XGBoost."""
     try:
+        features_df, _, _ = input_data   # Note only take features_df
         transformed = models["preprocessor"].transform(input_data)
         dmatrix = xgb.DMatrix(transformed)
         return models["model"].predict(dmatrix)
