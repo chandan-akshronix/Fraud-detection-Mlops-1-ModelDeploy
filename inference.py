@@ -45,12 +45,17 @@ def log_batch_to_dynamodb(transaction_ids, raw_records, preds, prob_percentages)
                 if tid is None:
                     # skip writing if no valid ID
                     continue
+
+                # Serialize input features dict to JSON string  
+                features_json = json.dumps(rec)
+                
+                # Build item: use Decimal for numeric attrs
                 item = {
                     "TransactionID": str(tid),
                     "PredictionClass": Decimal(str(int(pred > 0.5))),
                     "Probability": Decimal(str(prob)),
                     "Timestamp": datetime.utcnow().isoformat(),
-                    "InputFeatures": _convert_value_for_dynamo(rec)
+                    "InputFeatures": features_json
                 }
                 batch.put_item(Item=item)
     except Exception as e:
