@@ -13,16 +13,20 @@ from decimal import Decimal
 import concurrent.futures
 import pymongo
 from pymongo import MongoClient
+from urllib.parse import quote_plus
 
 # 1. Setup logging at WARNING to reduce overhead
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 logger.addHandler(logging.StreamHandler())
 
+username = quote_plus("taksandechandan")
+password = quote_plus("ZeHell@9876")
+
 # 2. Initialize Mongo table resource
+# Safely construct the Mongo URI
+MONGO_URI = f"mongodb+srv://{username}:{password}@frauddetectiondb.v5m9o50.mongodb.net/"
 
-
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://taksandechandan:ZeHell@9876@frauddetectiondb.v5m9o50.mongodb.net/")
 mongo_client = MongoClient(MONGO_URI)
 mongo_db = mongo_client["fraud_detection"]
 mongo_collection = mongo_db["predictions"]
