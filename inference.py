@@ -41,32 +41,35 @@ set_config(transform_output="pandas")
 
 def log_batch_to_mongodb(transaction_ids, raw_records, preds, prob_percentages):
     """
-    Batch-write full details to Mongo in background:
-      - TransactionID (partition key)
-      - PredictionClass (0/1 as Decimal)
-      - Probability (Decimal)
+    Batch-write full details to MongoDB:
+      - TransactionID
+      - PredictionClass (0 or 1)
+      - Probability (0–100 percentage)
       - Timestamp
-      - InputFeatures (map of original fields)
+      - InputFeatures (original features dict)
     Skips records where TransactionID is None.
     """
     try:
-        with table.batch_writer() as batch:
-            for tid, rec, pred, prob in zip(transaction_ids, raw_records, preds, prob_percentages):
-                if tid is None:
-                    # skip writing if no valid ID
-                    continue
-                
-                # Build item: use Decimal for numeric attrs
-                item = {
-                    "TransactionID": str(tid),
-                    "PredictionClass": Decimal(str(int(pred > 0.5))),
-                    "Probability": Decimal(str(prob)),
-                    "Timestamp": datetime.utcnow().isoformat(),
-                    "InputFeatures": rec
-                }
-                batch.put_item(Item=item)
+        documents = []
+        for tid, rec, pred, prob in zip(transaction_ids, raw_records, preds, prob_percentages):
+            if tid is None:
+                continue
+
+            doc = {
+                "TransactionID": str(tid),
+                "PredictionClass": int(pred),
+                "Probability": float(prob),
+                "Timestamp": datetime.utcnow().isoformat(),
+                "InputFeatures": rec
+            }
+            documents.append(doc)
+
+        if documents:
+            mongo_collection.insert_many(documents)
+
     except Exception as e:
         logger.error("Async Mongo write failed: %s", e)
+
 
 
 
