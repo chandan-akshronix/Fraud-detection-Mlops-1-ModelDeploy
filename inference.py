@@ -11,15 +11,21 @@ from botocore.exceptions import ClientError
 from datetime import datetime
 from decimal import Decimal
 import concurrent.futures
+import pymongo
+from pymongo import MongoClient
 
 # 1. Setup logging at WARNING to reduce overhead
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 logger.addHandler(logging.StreamHandler())
 
-# 2. Initialize DynamoDB table resource
-dynamodb = boto3.resource("dynamodb", region_name=os.environ.get("AWS_REGION", "ap-south-1"))
-table = dynamodb.Table("StorageTable_Prod")
+# 2. Initialize Mongo table resource
+
+
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://taksandechandan:ZeHell@9876@frauddetectiondb.v5m9o50.mongodb.net/")
+mongo_client = MongoClient(MONGO_URI)
+mongo_db = mongo_client["fraud_detection"]
+mongo_collection = mongo_db["predictions"]
 
 # 3. Thread pool for async logging
 _LOG_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2)
@@ -29,9 +35,9 @@ from sklearn import set_config
 set_config(transform_output="pandas")
 
 
-def log_batch_to_dynamodb(transaction_ids, raw_records, preds, prob_percentages):
+def log_batch_to_mongodb(transaction_ids, raw_records, preds, prob_percentages):
     """
-    Batch-write full details to DynamoDB in background:
+    Batch-write full details to Mongo in background:
       - TransactionID (partition key)
       - PredictionClass (0/1 as Decimal)
       - Probability (Decimal)
@@ -45,9 +51,6 @@ def log_batch_to_dynamodb(transaction_ids, raw_records, preds, prob_percentages)
                 if tid is None:
                     # skip writing if no valid ID
                     continue
-
-                # Serialize input features dict to JSON string  
-                features_json = json.dumps(rec)
                 
                 # Build item: use Decimal for numeric attrs
                 item = {
@@ -55,11 +58,11 @@ def log_batch_to_dynamodb(transaction_ids, raw_records, preds, prob_percentages)
                     "PredictionClass": Decimal(str(int(pred > 0.5))),
                     "Probability": Decimal(str(prob)),
                     "Timestamp": datetime.utcnow().isoformat(),
-                    "InputFeatures": features_json
+                    "InputFeatures": rec
                 }
                 batch.put_item(Item=item)
     except Exception as e:
-        logger.error("Async DynamoDB write failed: %s", e)
+        logger.error("Async Mongo write failed: %s", e)
 
 
 
@@ -156,7 +159,7 @@ def output_fn(predictions_with_ids, accept):
         prob_percs = [round(float(p) * 100, 2) for p in preds]
         # Submit background task; does not block response
         _LOG_EXECUTOR.submit(
-            log_batch_to_dynamodb,
+            log_batch_to_mongodb,
             transaction_ids,
             raw_records,
             pred_vals,
